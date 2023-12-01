@@ -27,11 +27,30 @@ def get_cal_value_naive(line):
     return cal_value
 
 
+NUMBERS = [
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine"
+]
+
+
 def get_all_digits(line):
     all_digits = []
-    for i in range(len(line)):
-        if line[i].isdigit():
-            all_digits.append(int(line[i]))
+    for start_index in range(len(line)):
+        if line[start_index].isdigit():
+            all_digits.append(int(line[start_index]))
+        else:
+            for num_index, num_str in enumerate(NUMBERS):
+                sub_line = line[start_index:start_index+len(num_str)]
+                if sub_line == num_str:
+                    all_digits.append(num_index+1)
+                    # we can't skip ahead since "oneight" is valid
 
     _logger.debug(f"all digits: {line}: {all_digits}")
     return all_digits
@@ -42,7 +61,6 @@ def get_cal_value(line):
     # digit and the last digit (in that order) to form a single two-digit
     # number.
     # It looks like some of the digits are actually spelled out with letters.
-    _logger.info(f"getting cal value for {line}")
     all_digits = get_all_digits(line)
     first_digit = all_digits[0]
     last_digit = all_digits[-1]

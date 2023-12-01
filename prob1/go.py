@@ -27,10 +27,34 @@ def get_cal_value_naive(line):
     return cal_value
 
 
+def get_all_digits(line):
+    all_digits = []
+    for i in range(len(line)):
+        if line[i].isdigit():
+            all_digits.append(int(line[i]))
+
+    _logger.debug(f"all digits: {line}: {all_digits}")
+    return all_digits
+
+
+def get_cal_value(line):
+    # On each line, the calibration value can be found by combining the first
+    # digit and the last digit (in that order) to form a single two-digit
+    # number.
+    # It looks like some of the digits are actually spelled out with letters.
+    _logger.info(f"getting cal value for {line}")
+    all_digits = get_all_digits(line)
+    first_digit = all_digits[0]
+    last_digit = all_digits[-1]
+    cal_value = first_digit * 10 + last_digit
+    _logger.info(f"cal value for {line}: {cal_value}")
+    return cal_value
+
+
 def get_cal_values(cal_doc):
     _logger.info("summing cal values")
     with open(cal_doc) as f:
-        cal_values = [get_cal_value_naive(line) for line in list(f)]
+        cal_values = [get_cal_value(line.strip()) for line in list(f)]
     return cal_values
 
 def main():

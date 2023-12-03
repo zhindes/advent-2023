@@ -56,13 +56,21 @@ class Row:
 
     def get_comps_in_block(self, start_x, end_x, types):
         # start and end is inclusive
-        block_set = set(range(start_x, end_x + 1))
         comps = []
         for comp in self.comps:
             if comp.type in types:
-                # this is very naive span check... my brain hurts
-                comp_set = set(range(comp.pos, comp.pos + comp.width))
-                if block_set & comp_set:
+                comp_start = comp.pos
+                comp_end = comp.pos + comp.width - 1
+
+                # ....xxx....
+                # .yy........
+                component_before = comp_end < start_x
+                # ....xxx....
+                # ........yy.
+                component_after = comp_start > end_x
+
+                # it must intersect!
+                if not component_before and not component_after:
                     comps.append(comp)
         return comps
 

@@ -144,34 +144,15 @@ class Almanac:
         location_maps = sorted(self.maps[MapType.HUMIDITY_TO_LOCATION], key=lambda map: map.dest.stop)
         max_location = location_maps[-1].dest.stop
 
-        location_range = range(0, max_location)
-        _logger.debug(f"location range: {location_range}")
+        dest_ranges = [range(0, max_location)]
+        for (type,_) in reversed(MAP_LIST):
+            _logger.debug(f"dest_ranges: {dest_ranges}")
+            dest_ranges = list(self.get_srcs_for_dests(type, dest_ranges))
 
-        humidity_ranges = list(self.get_srcs_for_dests(MapType.HUMIDITY_TO_LOCATION, [location_range]))
-        _logger.debug(f"humidity ranges: {humidity_ranges}")
-
-        temp_ranges = list(self.get_srcs_for_dests(MapType.TEMPERATURE_TO_HUMIDITY, humidity_ranges))
-        _logger.debug(f"temp ranges: {temp_ranges}")
-
-        light_ranges = list(self.get_srcs_for_dests(MapType.LIGHT_TO_TEMPERATURE, temp_ranges))
-        _logger.debug(f"light ranges: {light_ranges}")
-
-        water_ranges = list(self.get_srcs_for_dests(MapType.WATER_TO_LIGHT, light_ranges))
-        _logger.debug(f"water ranges: {water_ranges}")
-
-        fertilizer_ranges = list(self.get_srcs_for_dests(MapType.FERTILIZER_TO_WATER, water_ranges))
-        _logger.debug(f"fertilizer ranges: {fertilizer_ranges}")
-
-        soil_ranges = list(self.get_srcs_for_dests(MapType.SOIL_TO_FERTILIZER, fertilizer_ranges))
-        _logger.debug(f"soil ranges: {soil_ranges}")
-
-        seed_ranges = list(self.get_srcs_for_dests(MapType.SEED_TO_SOIL, soil_ranges))
-        _logger.debug(f"seed ranges: {seed_ranges}")
-
-        for possible_seed_range in seed_ranges:
+        for possible_seed_range in dest_ranges:
             _logger.debug(f"seed {possible_seed_range.start} --> location {self.get_location_for_seed(possible_seed_range.start)}")
 
-        for possible_seed_range in seed_ranges:
+        for possible_seed_range in dest_ranges:
             for seed_range in self.seeds:
                 seed_intersect = range_intersect(possible_seed_range, seed_range)
                 if seed_intersect:

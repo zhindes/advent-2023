@@ -1,11 +1,11 @@
 import logging
 import re
 import os
-from enum import IntEnum
+from enum import Enum
 
 _logger = logging.getLogger(__name__)
 
-class MapType(IntEnum):
+class MapType(Enum):
     SEED_TO_SOIL = 0
     SOIL_TO_FERTILIZER = 1
     FERTILIZER_TO_WATER = 2
@@ -26,12 +26,11 @@ MAP_LIST = [
 
 class MapInfo:
     def __init__(self, dest_start, src_start, len):
-        self.dest_start = dest_start
-        self.src_start = src_start
-        self.len = len
+        self.src = range(src_start, src_start+len)
+        self.dest = range(dest_start, dest_start+len)
 
     def __repr__(self):
-        return f"{self.dest_start} {self.src_start} {self.len}"
+        return f"src: {self.src} -> dest: {self.dest}"
 
 class Almanac:
     def __init__(self):
@@ -50,8 +49,8 @@ class Almanac:
         i = 0
         while i < len(seeds):
             start = seeds[i]
-            end = start + seeds[i+1]
-            self.seeds.append((start, end))
+            stop = start + seeds[i+1]
+            self.seeds.append((start, stop))
             i += 2
 
     def update_map(self, type, map_info):
@@ -60,18 +59,16 @@ class Almanac:
     def _map_src_to_dest(self, type, src):
         map_list = self.maps[type]
         for map in map_list:
-            if src >= map.src_start:
-                if src < map.src_start + map.len:
-                    offset = src - map.src_start
-                    return map.dest_start + offset
-                break
+            if src >= map.src.start:
+                if src < map.src.stop:
+                    offset = src - map.src.start
+                    return map.dest.start + offset
         return src
 
-    def get_location(self, seed):
+    def get_location_for_seed(self, seed):
         src = seed
         for (type,_) in MAP_LIST:
             dest = self._map_src_to_dest(type, src)
-            _logger.debug(f"{type} src {src} --> dest {dest}")
             src = dest
         _logger.info(f"seed {seed} --> location {dest}")
         return dest
@@ -80,52 +77,51 @@ class Almanac:
         lowest_location = -1
         for (start, end) in self.seeds:
             for seed in range(start, end):
-                location = self.get_location(seed)
+                location = self.get_location_for_seed(seed)
                 lowest_location = min(location, lowest_location) if lowest_location > 0 else location
         return lowest_location
 
-    def _get_srcs_for_dests(self, next_type, input):
-        _logger.debug(f"finding dests in {next_type} for dests {input}")
-        # input is next_type's dest
-        input_len = input.stop - input.start
-        for next_range in self.maps[next_type]:
-            if input.stop > next_range.dest_start + next_range.len:
-                continue
-            if input.start >= next_range.dest_start:
-                offset = input.start - next_range.dest_start
-                len_for_range = min(input_len, next_range.len)
-                input_len -= len_for_range
-                yield range(next_range.src_start + offset, len_for_range)
-            # we're done
-            if input_len == 0:
-                return
+    def _map_dest_to_src(self, type, dest):
+        map_list = self.maps[type]
+        for map in map_list:
+            if dest >= map.dest.start:
+                if dest < map.dest.stop:
+                    offset = dest - map.dest.start
+                    return map.src.start + offset
+        return dest
 
-        # and the last bit
-        yield range(next_range.src_start, next_range.src_start + input_len)
+    def get_seed_for_location(self, location):
+        dest = location
+        for (type,_) in reversed(MAP_LIST):
+            src = self._map_dest_to_src(type, dest)
+            dest = src
+        return src
 
-    def _lowest_seed_in_range(self, seed_ranges):
-        pass
+    def is_seed_valid(self, seed):
+        for (start, stop) in self.seeds:
+            if seed >= start and seed < stop:
+                return True
+        return False
 
-    def prepare(self):
-        # sort the way we want
-        for type, map in self.maps.items():
-            map.sort(key=lambda map_info: map_info.dest_start)
-
-        # add a "fake" dest range in the last map
-        lowest_location_range = self.maps[MapType.HUMIDITY_TO_LOCATION][0]
-        new_lowest_location_range = MapInfo(0, 0, lowest_location_range.dest_start)
-        self.maps[MapType.HUMIDITY_TO_LOCATION].insert(0, new_lowest_location_range)
+    def get_lowest_location_brute2(self):
+        location = 0
+        while True:
+            seed = self.get_seed_for_location(location)
+            if self.is_seed_valid(seed):
+                return location
+            location += 1
+            if location % 10000 == 0:
+                _logger.info(location)
 
     def get_lowest_location_fast(self):
-        for map_info in self.maps[MapType.HUMIDITY_TO_LOCATION]:
-            _logger.debug(f"lowest_location_info: {map_info}")
-            lowest_range = range(map_info.src_start, map_info.len)
-            next_ranges = list(self._get_srcs_for_dests(MapType.HUMIDITY_TO_LOCATION-1, lowest_range))
-            _logger.debug(f"next ranges: {next_ranges}")
-            # lowest_seed_in_ranges = self._lowest_seed_in_range(seed_ranges)
-            # if lowest_seed_in_ranges is not None:
-                # return lowest_seed_in_ranges
+        # order maps by dests
+        # add in gaps to dests
 
+        # algorithm:
+        # 0. dests = dests in HUMIDITY_TO_LOCATION
+        # 1. get srcs for those dest ranges in HUMIDITY_TO_LOCATION
+        # 2. map to dests in TEMPERATURE_TO_HUMIDITY
+        # 3. repeat til seeds
 
     def __repr__(self):
         result = f"seeds: {self.seeds}\n"
@@ -173,7 +169,6 @@ def get_almanac(input):
                 )
                 almanac.update_map(type, map_info)
 
-    almanac.prepare()
     _logger.debug(f"Almanac: {str(almanac)}")
     return almanac
 
@@ -198,7 +193,8 @@ def main():
 
     almanac = get_almanac(args.input)
     # print(f"Minimum seed location (brute): {almanac.get_lowest_location_brute()}")
-    print(f"Minimum seed location (fast): {almanac.get_lowest_location_fast()}")
+    # print(f"Minimum seed location (brute2): {almanac.get_lowest_location_brute2()}")
+
 
 
 if __name__ == "__main__":
